@@ -146,6 +146,18 @@ require_once MACP_PLUGIN_DIR . 'includes/ajax/class-macp-css-test-ajax.php';
 
 
 
+// In my-advanced-cache-plugin.php
+register_activation_hook(__FILE__, 'macp_schedule_css_processing');
+
+function macp_schedule_css_processing() {
+    if (!wp_next_scheduled('macp_process_css_queue')) {
+        wp_schedule_event(time(), 'five_minutes', 'macp_process_css_queue');
+    }
+}
+
+
+
+
 // Initialize the plugin
 function MACP() {
     return MACP_Plugin::get_instance();

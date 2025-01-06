@@ -129,7 +129,22 @@ $redis_info = $redis_status->get_status();
                     <span class="macp-toggle-slider"></span>
                     Remove Unused CSS
                 </label>
+<button type="button" id="process-css-queue" class="button button-secondary">
+    Process CSS Queue
+</button>
 
+<script>
+jQuery(document).ready(function($) {
+    $('#process-css-queue').on('click', function() {
+        $.post(ajaxurl, {
+            action: 'macp_process_css_queue',
+            nonce: macp_admin.nonce
+        }, function(response) {
+            alert(response.success ? 'Processing started' : 'Failed to start processing');
+        });
+    });
+});
+</script>
                 <label class="macp-toggle">
                     <input type="checkbox" name="macp_process_external_css" value="1" <?php checked($settings['process_external_css'], 1); ?>>
                     <span class="macp-toggle-slider"></span>
