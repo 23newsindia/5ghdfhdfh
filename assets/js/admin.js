@@ -28,14 +28,14 @@
 
             $checkbox.prop('disabled', true);
 
-            $.ajax({
+           $.ajax({
                 url: ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'macp_toggle_setting',
                     option: option,
                     value: value,
-                    nonce: macpAdmin.nonce
+                    nonce: macpAdmin.nonce // Changed from macp_admin to macpAdmin
                 },
                 success: function(response) {
                     if (response.success) {

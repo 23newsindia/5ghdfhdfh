@@ -138,7 +138,7 @@ jQuery(document).ready(function($) {
     $('#process-css-queue').on('click', function() {
         $.post(ajaxurl, {
             action: 'macp_process_css_queue',
-            nonce: macp_admin.nonce
+            nonce: macpAdmin.nonce  // Changed from macp_admin to macpAdmin
         }, function(response) {
             alert(response.success ? 'Processing started' : 'Failed to start processing');
         });

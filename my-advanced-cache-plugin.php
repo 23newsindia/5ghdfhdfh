@@ -11,12 +11,10 @@ if (!defined('ABSPATH')) exit;
 define('MACP_PLUGIN_FILE', __FILE__);
 define('MACP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 
-
 // Load Composer autoloader
 if (file_exists(MACP_PLUGIN_DIR . 'vendor/autoload.php')) {
     require_once MACP_PLUGIN_DIR . 'vendor/autoload.php';
 }
-
 
 // Load installer first
 require_once MACP_PLUGIN_DIR . 'includes/class-macp-installer.php';
@@ -24,23 +22,28 @@ require_once MACP_PLUGIN_DIR . 'includes/class-macp-installer.php';
 // Register activation hook
 register_activation_hook(__FILE__, ['MACP_Installer', 'install']);
 
-
-
 // Load utility classes first
 require_once MACP_PLUGIN_DIR . 'includes/class-macp-debug.php';
 require_once MACP_PLUGIN_DIR . 'includes/class-macp-filesystem.php';
 require_once MACP_PLUGIN_DIR . 'includes/class-macp-url-helper.php';
 require_once MACP_PLUGIN_DIR . 'includes/css/test/class-macp-css-test-handler.php';
 
-
-
-
 // Add to the existing requires section:
 require_once MACP_PLUGIN_DIR . 'includes/css/test/class-macp-css-test-controller.php';
 require_once MACP_PLUGIN_DIR . 'includes/css/test/class-macp-url-validator.php';
 require_once MACP_PLUGIN_DIR . 'includes/css/test/class-macp-css-test-results.php';
 
+// Watch for changes: Adding Cron Schedule Interval Filter (Top Section)
+add_filter('cron_schedules', 'macp_add_cron_interval');
 
+function macp_add_cron_interval($schedules) {
+    $schedules['five_minutes'] = array(
+        'interval' => 300,
+        'display'  => esc_html__('Every Five Minutes'),
+    );
+    return $schedules;
+}
+// Above: Added cron_schedules filter.
 
 // Load Redis classes
 require_once MACP_PLUGIN_DIR . 'includes/redis/class-macp-redis-connection.php';
@@ -57,6 +60,22 @@ require_once MACP_PLUGIN_DIR . 'includes/metrics/class-macp-metrics-recorder.php
 require_once MACP_PLUGIN_DIR . 'includes/class-macp-cache-helper.php';
 require_once MACP_PLUGIN_DIR . 'includes/class-macp-html-cache.php';
 
+// Watch for changes: Adding CSS Queue Processing Hooks
+register_activation_hook(__FILE__, 'macp_schedule_css_processing');
+add_action('macp_process_css_queue_cron', 'macp_process_css_queue_callback');
+
+function macp_schedule_css_processing() {
+    if (!wp_next_scheduled('macp_process_css_queue_cron')) {
+        wp_schedule_event(time(), 'five_minutes', 'macp_process_css_queue_cron');
+    }
+}
+
+function macp_process_css_queue_callback() {
+    $processor = new MACP_CSS_Queue_Processor();
+    $processor->process_queue();
+}
+// Above: CSS queue processing hooks and functions added.
+
 // Load minification classes
 require_once MACP_PLUGIN_DIR . 'includes/minify/class-macp-html-minifier.php';
 require_once MACP_PLUGIN_DIR . 'includes/minify/class-macp-minify-css.php';
@@ -70,11 +89,8 @@ require_once MACP_PLUGIN_DIR . 'includes/css/class-macp-css-config.php';
 require_once MACP_PLUGIN_DIR . 'includes/css/class-macp-css-extractor.php';
 require_once MACP_PLUGIN_DIR . 'includes/css/class-macp-css-minifier.php';
 
-
 // In my-advanced-cache-plugin.php, add:
 require_once MACP_PLUGIN_DIR . 'includes/css/test/class-macp-css-test-service.php';
-
-
 
 // Load JavaScript optimization classes
 require_once MACP_PLUGIN_DIR . 'includes/js/class-macp-script-attributes.php';
@@ -108,21 +124,14 @@ require_once MACP_PLUGIN_DIR . 'includes/critical-css/class-macp-css-fetcher.php
 require_once MACP_PLUGIN_DIR . 'includes/critical-css/class-macp-css-processor.php';
 require_once MACP_PLUGIN_DIR . 'includes/critical-css/class-macp-critical-css.php';
 
-
-
-
 require_once MACP_PLUGIN_DIR . 'includes/css/processors/class-macp-css-processor-manager.php';
-
-
 require_once MACP_PLUGIN_DIR . 'includes/css/processors/class-macp-css-queue-processor.php';
-
 
 // Load CSS parsers
 require_once MACP_PLUGIN_DIR . 'includes/css/parsers/class-macp-css-selector-parser.php';
 
 // Then load CSS extractor
 require_once MACP_PLUGIN_DIR . 'includes/css/class-macp-css-extractor.php';
-
 
 require_once MACP_PLUGIN_DIR . 'includes/redis/class-macp-redis-primer.php';
 
@@ -140,23 +149,8 @@ require_once MACP_PLUGIN_DIR . 'includes/js/class-macp-script-loader.php';
 // Include the main plugin class last
 require_once MACP_PLUGIN_DIR . 'includes/class-macp-plugin.php';
 
-
 // AJAX LOAD
 require_once MACP_PLUGIN_DIR . 'includes/ajax/class-macp-css-test-ajax.php';
-
-
-
-// In my-advanced-cache-plugin.php
-register_activation_hook(__FILE__, 'macp_schedule_css_processing');
-
-function macp_schedule_css_processing() {
-    if (!wp_next_scheduled('macp_process_css_queue')) {
-        wp_schedule_event(time(), 'five_minutes', 'macp_process_css_queue');
-    }
-}
-
-
-
 
 // Initialize the plugin
 function MACP() {

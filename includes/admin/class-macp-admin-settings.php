@@ -24,22 +24,41 @@ class MACP_Admin_Settings {
     }
 
     public function ajax_toggle_setting() {
+    try {
+        // Verify nonce
         check_ajax_referer('macp_admin_nonce', 'nonce');
 
+        // Check permissions
         if (!current_user_can('manage_options')) {
-            wp_send_json_error('Unauthorized');
+            wp_send_json_error(['message' => 'Unauthorized access']);
+            return;
+        }
+
+        // Validate input
+        if (!isset($_POST['option']) || !isset($_POST['value'])) {
+            wp_send_json_error(['message' => 'Missing required parameters']);
+            return;
         }
 
         $option = sanitize_key($_POST['option']);
         $value = (int)$_POST['value'];
 
+        // Update option
         if (update_option($option, $value)) {
             do_action('macp_settings_updated', $option, $value);
             wp_send_json_success(['message' => 'Setting updated successfully']);
         } else {
             wp_send_json_error(['message' => 'Failed to update setting']);
         }
+
+    } catch (Exception $e) {
+        wp_send_json_error([
+            'message' => 'Error: ' . $e->getMessage(),
+            'trace' => WP_DEBUG ? $e->getTraceAsString() : null
+        ]);
     }
+}
+
 
 
     public function ajax_save_textarea() {
