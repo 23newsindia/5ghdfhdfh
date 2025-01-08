@@ -12,8 +12,15 @@ define('MACP_PLUGIN_FILE', __FILE__);
 define('MACP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 
 // Load Composer autoloader
+// At the top of my-advanced-cache-plugin.php
 if (file_exists(MACP_PLUGIN_DIR . 'vendor/autoload.php')) {
     require_once MACP_PLUGIN_DIR . 'vendor/autoload.php';
+} else {
+    // Log error or notify admin that dependencies are missing
+    add_action('admin_notices', function() {
+        echo '<div class="error"><p>Cache plugin dependencies are missing. Please run composer install.</p></div>';
+    });
+    return;
 }
 
 // Load installer first
