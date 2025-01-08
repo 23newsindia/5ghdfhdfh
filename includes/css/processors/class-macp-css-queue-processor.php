@@ -1,4 +1,9 @@
 <?php
+
+// Import the CssSelectorConverter class
+use Symfony\Component\CssSelector\CssSelectorConverter;
+
+
 /**
  * Handles background processing of CSS optimization
  */
@@ -192,11 +197,18 @@ class MACP_CSS_Queue_Processor {
         
         return $used_css;
     }
-
-    private function convert_css_to_xpath($selector) {
+  
+  
+  private function convert_css_to_xpath($selector) {
+    try {
         $converter = new CssSelectorConverter();
         return $converter->toXPath($selector);
+    } catch (Exception $e) {
+        MACP_Debug::log('CSS Selector conversion failed: ' . $e->getMessage());
+        return false;
     }
+}
+
 
     private function mark_as_error($id, $message) {
         global $wpdb;
