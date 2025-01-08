@@ -13,20 +13,28 @@ class MACP_CSS_Queue_Processor {
         $this->table_name = $wpdb->prefix . 'macp_used_css';
     }
 
+  
 public function process_queue() {
     global $wpdb;
 
-    MACP_Debug::log('Starting CSS queue processing');
+    // Add a lock mechanism
+    $lock_key = 'macp_css_processing_lock';
+    if (get_transient($lock_key)) {
+        return;
+    }
+    set_transient($lock_key, true, 5 * MINUTE_IN_SECONDS);
 
-    // Get pending items
-    $items = $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM {$this->table_name} 
-        WHERE status = 'pending' 
-        AND retries < 3 
-        ORDER BY id ASC 
-        LIMIT %d",
-        $this->batch_size
-    ));
+    try {
+        // Get pending items with retry limit
+        $items = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$this->table_name} 
+            WHERE status = 'pending' 
+            AND retries < 3 
+            ORDER BY id ASC 
+            LIMIT %d",
+            $this->batch_size
+        ));
+      
 
     if (empty($items)) {
         MACP_Debug::log('No pending items in queue');
@@ -34,29 +42,46 @@ public function process_queue() {
     }
 
     foreach ($items as $item) {
-        try {
-            // Skip robots.txt and invalid URLs
-            if (strpos($item->url, 'robots.txt') !== false || !filter_var($item->url, FILTER_VALIDATE_URL)) {
-                $this->mark_as_error($item->id, 'Invalid URL or robots.txt');
-                continue;
+            try {
+                // Validate URL before processing
+                if (!filter_var($item->url, FILTER_VALIDATE_URL) || 
+                    !wp_parse_url($item->url, PHP_URL_HOST)) {
+                    $this->mark_as_error($item->id, 'Invalid URL format');
+                    continue;
+                }
+
+                // Update status to processing
+                $wpdb->update(
+                    $this->table_name,
+                    ['status' => 'processing'],
+                    ['id' => $item->id]
+                );
+
+                // Process the URL
+                $result = $this->process_url($item->url);
+                
+                if ($result) {
+                    $wpdb->update(
+                        $this->table_name,
+                        [
+                            'status' => 'completed',
+                            'modified' => current_time('mysql')
+                        ],
+                        ['id' => $item->id]
+                    );
+                } else {
+                    throw new Exception('Processing failed');
+                }
+
+            } catch (Exception $e) {
+                $this->mark_as_error($item->id, $e->getMessage());
             }
-
-            MACP_Debug::log('Processing URL: ' . $item->url);
-
-            // Fetch page content
-            $response = wp_remote_get($item->url, [
-                'timeout' => 30,
-                'sslverify' => false
-            ]);
-
-            if (is_wp_error($response)) {
-                throw new Exception('Failed to fetch URL: ' . $response->get_error_message());
-            }
-
-            $html = wp_remote_retrieve_body($response);
-            if (empty($html)) {
-                throw new Exception('Empty response from URL');
-            }
+        }
+    } finally {
+        delete_transient($lock_key);
+    }
+}
+              
 
             // Extract CSS files using DOMDocument
             $dom = new DOMDocument();
@@ -125,6 +150,8 @@ public function process_queue() {
     }
 }
 
+ 
+  
 private function process_css_content($css, $html) {
     // Remove comments
     $css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $css);
